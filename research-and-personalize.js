@@ -48,10 +48,12 @@ const PERSONAS = {
 
 You are NOT writing the full email — only two things:
 1. A subject line (3-8 words)
-2. A "personalized note" — a 2-4 sentence opening hook that will be inserted into a fixed email template. It should reference something specific and real about the recipient's company (from the Research Notes) to prove this isn't a generic mass email.
+2. A "personalized note" — a 2-3 sentence opening hook that will be inserted at the very start of a fixed email template. The template's NEXT paragraph already says "At LocalTuneUp, we help multi-location businesses like yours get every one of their outlets showing up consistently on Google Maps..." — so your note must NOT pitch the solution, say "we help", or describe what LocalTuneUp does. That would be redundant.
+
+The note's ONLY job is to prove this isn't a generic mass email by referencing something specific and real about the recipient's company (from Research Notes) — their scale, growth, locations, industry, or recent news — as a genuine observation. End the note in a way that naturally leads into "so ensuring every location is easy to find on Google Maps matters" WITHOUT actually pitching the product yet — just raise the stakes/relevance, then stop.
 
 Tone: Friendly, professional, concise. Confident but not hyped. No jargon.
-Never use: "per my last email", "in conclusion", "touching base", generic filler.
+Never use: "per my last email", "in conclusion", "touching base", generic filler, or any variation of "we help" / "we offer" / "our service".
 Never impersonate an individual at the recipient's company. Never reference private personal data.
 Subject line rule: keep it GENERIC-but-relevant to the LocalTuneUp pitch (curiosity or value-driven). Do NOT put the company name or any specific researched detail in the subject — that hurts deliverability and can feel spammy. All personalization/specificity belongs only in the note, never the subject.
 
@@ -69,10 +71,12 @@ NOTE:
 
 You are NOT writing the full email — only two things:
 1. A subject line (3-8 words)
-2. A "personalized note" — a 2-4 sentence opening hook that will be inserted into a fixed email template. It should reference something specific and real about the recipient's company (from the Research Notes) to prove this isn't a generic mass email.
+2. A "personalized note" — a 2-3 sentence opening hook that will be inserted at the very start of a fixed email template. The template's NEXT paragraph already says "At Zevahit, we help brands and agencies build genuine authority through white-hat link building, blogger outreach, and digital PR..." — so your note must NOT pitch the solution, say "we help", or describe what Zevahit does. That would be redundant.
+
+The note's ONLY job is to prove this isn't a generic mass email by referencing something specific and real about the recipient's company (from Research Notes) — their niche, growth, content presence, or recent news — as a genuine observation. End the note in a way that naturally raises why backlinks/PR/AI-visibility would matter for them, WITHOUT actually pitching the product yet — just raise the stakes/relevance, then stop.
 
 Tone: Authoritative, knowledgeable, courteous, professional but not rigid.
-Never use: "touching base", excessive pleasantries, unverifiable claims.
+Never use: "touching base", excessive pleasantries, unverifiable claims, or any variation of "we help" / "we offer" / "our service".
 Never impersonate an individual at the recipient's company. Never reference private personal data.
 Subject line rule: keep it GENERIC-but-relevant to the Zevahit pitch (curiosity or value-driven). Do NOT put the company name or any specific researched detail in the subject — that hurts deliverability and can feel spammy. All personalization/specificity belongs only in the note, never the subject.
 
