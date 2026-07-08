@@ -26,8 +26,8 @@
  *  Leave Status empty for leads not yet processed.
  */
 
-const { google } = require("googleapis");
-const { GoogleGenAI } = require("@google/genai");
+import { google } from "googleapis";
+import { GoogleGenAI } from "@google/genai";
 
 const SHEET_ID = process.env.SHEET_ID;
 const SHEET_TAB = "Leads";
