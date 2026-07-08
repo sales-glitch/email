@@ -1,13 +1,12 @@
-name: Send Personalized Outreach Emails
+name: Research and Personalize Leads (for Mailmeteor)
 
 on:
   schedule:
-    # Runs at 5:00 AM UTC = 10:30 AM IST, Mon-Fri
-    - cron: "0 5 * * 1-5"
-  workflow_dispatch: {} # allows manual "Run workflow" trigger from GitHub UI
+    - cron: "0 4 * * 1-5" # 4:00 AM UTC = 9:30 AM IST, Mon-Fri
+  workflow_dispatch: {}
 
 jobs:
-  send-emails:
+  research-and-personalize:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
@@ -21,13 +20,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run outreach bot
+      - name: Run research + personalization bot
         env:
-          GMAIL_USER: ${{ secrets.GMAIL_USER }}
-          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           SHEET_ID: ${{ secrets.SHEET_ID }}
           SENDER_NAME: "Salman"
-          DAILY_SEND_LIMIT: "80"
-        run: node send-emails.js
+          DAILY_LEAD_LIMIT: "100"
+        run: node research-and-personalize.js
