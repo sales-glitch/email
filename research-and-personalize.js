@@ -36,8 +36,27 @@ const SHEET_TAB = "Leads";
 const DAILY_LEAD_LIMIT = parseInt(process.env.DAILY_LEAD_LIMIT || "100", 10);
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const RESEARCH_MODEL = "gemini-2.5-flash";
-const WRITE_MODEL = "gemini-2.5-flash";
+const RESEARCH_MODEL = "gemini-3.1-flash-lite";
+const WRITE_MODEL = "gemini-3.1-flash-lite";
+
+// ---------- Retry helper for transient rate-limit (429) errors ----------
+
+async function withRetry(fn, maxRetries = 3) {
+  let lastErr;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const is429 = err.message && err.message.includes("429");
+      if (!is429 || attempt === maxRetries) throw err;
+      const waitMs = 15000 * (attempt + 1); // 15s, 30s, 45s backoff
+      console.log(`Rate limited (429), retrying in ${waitMs / 1000}s... (attempt ${attempt + 1}/${maxRetries})`);
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
+  }
+  throw lastErr;
+}
 
 // ---------- Persona context (brand angle used to steer research + writing) ----------
 
@@ -139,16 +158,18 @@ ${persona.researchAngle}
 
 Return a factual summary under 150 words covering: what the company does, approximate scale (number of locations/stores if applicable), primary city/country, and any notable recent news (last 12 months) if found. Be explicit if you could not confirm something — say "unconfirmed" rather than guessing. Do not fabricate numbers or facts.`;
 
-  const response = await ai.models.generateContent({
-    model: RESEARCH_MODEL,
-    contents: prompt,
-    config: {
-      tools: [{ googleSearch: {} }],
-      maxOutputTokens: 1000,
-      temperature: 0.3,
-      thinkingConfig: { thinkingBudget: 0 },
-    },
-  });
+  const response = await withRetry(() =>
+    ai.models.generateContent({
+      model: RESEARCH_MODEL,
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        maxOutputTokens: 1000,
+        temperature: 0.3,
+        thinkingConfig: { thinkingBudget: 0 },
+      },
+    })
+  );
 
   return response.text.trim();
 }
@@ -169,16 +190,18 @@ ${researchNotes}
 
 Write the subject line and personalized note now.`;
 
-  const response = await ai.models.generateContent({
-    model: WRITE_MODEL,
-    contents: userMsg,
-    config: {
-      systemInstruction: persona.writeSystemPrompt,
-      maxOutputTokens: 600,
-      temperature: 0.7,
-      thinkingConfig: { thinkingBudget: 0 },
-    },
-  });
+  const response = await withRetry(() =>
+    ai.models.generateContent({
+      model: WRITE_MODEL,
+      contents: userMsg,
+      config: {
+        systemInstruction: persona.writeSystemPrompt,
+        maxOutputTokens: 600,
+        temperature: 0.7,
+        thinkingConfig: { thinkingBudget: 0 },
+      },
+    })
+  );
 
   const raw = response.text.trim();
   const subjectMatch = raw.match(/SUBJECT:\s*(.+)/i);
