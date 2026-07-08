@@ -46,9 +46,10 @@ Never use: "per my last email", "in conclusion", "touching base", generic filler
 Never impersonate an individual at the recipient's company. Never request or reference private personal data.
 Sign off as "[Sender Name] | LocalTuneUp" — sender name will be provided separately, just leave a placeholder [SENDER_NAME].
 
-Return ONLY valid JSON, no markdown fences, in this exact shape:
-{"subject": "...", "body": "..."}
-The body should be plain text with \\n\\n between paragraphs (no HTML).`,
+Return your response in EXACTLY this format, nothing before or after, no markdown, no code fences:
+SUBJECT: <the subject line, one line only>
+BODY:
+<the full email body, plain text, blank line between paragraphs>`,
 
   Zevahit: `You are writing a cold outreach email as Zevahit, a digital PR, link-building, and GEO (Generative Engine Optimization) agency.
 
@@ -61,9 +62,10 @@ Never use: "touching base", excessive pleasantries, unverifiable claims, or inve
 Never impersonate an individual at the recipient's company. Never request or reference private personal data.
 Sign off as "[Sender Name] | Zevahit" — sender name will be provided separately, just leave a placeholder [SENDER_NAME].
 
-Return ONLY valid JSON, no markdown fences, in this exact shape:
-{"subject": "...", "body": "..."}
-The body should be plain text with \\n\\n between paragraphs (no HTML).`,
+Return your response in EXACTLY this format, nothing before or after, no markdown, no code fences:
+SUBJECT: <the subject line, one line only>
+BODY:
+<the full email body, plain text, blank line between paragraphs>`,
 };
 
 const SENDER_NAME = process.env.SENDER_NAME || "Salman";
@@ -127,24 +129,22 @@ Write the outreach email now.`;
     generationConfig: {
       maxOutputTokens: 800,
       temperature: 0.7,
-      responseMimeType: "application/json",
     },
   });
 
-  const raw = result.response
-    .text()
-    .replace(/```json|```/g, "")
-    .trim();
+  const raw = result.response.text().trim();
 
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (e) {
-    // Fallback: if a stray raw newline broke the JSON string, escape newlines
-    // that appear inside quoted strings before retrying.
-    const sanitized = raw.replace(/[\n\r]+/g, "\\n");
-    parsed = JSON.parse(sanitized);
+  const subjectMatch = raw.match(/SUBJECT:\s*(.+)/i);
+  const bodyMatch = raw.match(/BODY:\s*([\s\S]*)/i);
+
+  if (!subjectMatch || !bodyMatch) {
+    throw new Error(`Could not parse AI response (missing SUBJECT/BODY). Raw: ${raw.slice(0, 200)}`);
   }
+
+  const parsed = {
+    subject: subjectMatch[1].trim(),
+    body: bodyMatch[1].trim(),
+  };
   const body = parsed.body.replace(/\[SENDER_NAME\]/g, SENDER_NAME);
   return { subject: parsed.subject, body };
 }
