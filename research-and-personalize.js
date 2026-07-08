@@ -1,13 +1,13 @@
 /**
  * Research + Personalize Bot (for Mailmeteor)
- * LocalTuneUp + Zevahit — Google Sheets + Gemini (with Google Search grounding)
+ * LocalTuneUp + Zevahit — Google Sheets + Grok (xAI) with Live Search
  *
  * This script does NOT send emails and does NOT write a full email body.
  * It:
  *  1. Reads leads from a Google Sheet (Name, Company, Email, Persona)
- *  2. RESEARCHES each lead using Gemini's built-in Google Search grounding
+ *  2. RESEARCHES each lead using Grok's built-in web_search tool (Live Search)
  *     (finds info about the company/brand starting from just its name)
- *  3. Writes a short PERSONALIZED SUBJECT and a 2-4 sentence PERSONALIZED NOTE
+ *  3. Writes a short PERSONALIZED SUBJECT and a 2-3 sentence PERSONALIZED NOTE
  *     (an opening-hook paragraph referencing real researched details)
  *  4. Writes ResearchNotes, Subject, PersonalizedNote, Status back to the Sheet
  *
@@ -17,7 +17,7 @@
  * Everything else in the template (value prop, CTA, signature) stays fixed.
  *
  * Required GitHub Secrets:
- *  - GEMINI_API_KEY                Gemini API key from Google AI Studio
+ *  - XAI_API_KEY                   Grok API key from console.x.ai
  *  - GOOGLE_SERVICE_ACCOUNT_JSON   full JSON key (as one-line string) for a service account
  *                                   that has Editor access to the target Sheet
  *  - SHEET_ID                      the Google Sheet ID (from its URL)
@@ -29,15 +29,17 @@
  */
 
 import { google } from "googleapis";
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
 
 const SHEET_ID = process.env.SHEET_ID;
 const SHEET_TAB = "Leads";
 const DAILY_LEAD_LIMIT = parseInt(process.env.DAILY_LEAD_LIMIT || "100", 10);
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-const RESEARCH_MODEL = "gemini-3.1-flash-lite";
-const WRITE_MODEL = "gemini-3.1-flash-lite";
+const xai = new OpenAI({
+  apiKey: process.env.XAI_API_KEY,
+  baseURL: "https://api.x.ai/v1",
+});
+const MODEL = "grok-4.3";
 
 // ---------- Retry helper for transient rate-limit (429) errors ----------
 
@@ -48,7 +50,7 @@ async function withRetry(fn, maxRetries = 3) {
       return await fn();
     } catch (err) {
       lastErr = err;
-      const is429 = err.message && err.message.includes("429");
+      const is429 = err.status === 429 || (err.message && err.message.includes("429"));
       if (!is429 || attempt === maxRetries) throw err;
       const waitMs = 15000 * (attempt + 1); // 15s, 30s, 45s backoff
       console.log(`Rate limited (429), retrying in ${waitMs / 1000}s... (attempt ${attempt + 1}/${maxRetries})`);
@@ -69,7 +71,7 @@ You are NOT writing the full email — only two things:
 1. A subject line (3-8 words)
 2. A "personalized note" — a 2-3 sentence opening hook that will be inserted at the very start of a fixed email template. The template's NEXT paragraph already says "At LocalTuneUp, we help multi-location businesses like yours get every one of their outlets showing up consistently on Google Maps..." — so your note must NOT pitch the solution, say "we help", or describe what LocalTuneUp does. That would be redundant.
 
-The note's ONLY job is to prove this isn't a generic mass email by referencing something specific and real about the recipient's company (from Research Notes) — their scale, growth, locations, industry, or recent news — as a genuine observation. End the note in a way that naturally leads into "so ensuring every location is easy to find on Google Maps matters" WITHOUT actually pitching the product yet — just raise the stakes/relevance, then stop.
+The note's ONLY job is to prove this isn't a generic mass email by referencing something specific and real about the recipient's company (from Research Notes) — their scale, growth, locations, industry, or recent news — as a genuine observation. End the note in a way that naturally raises why Google Maps visibility matters for them, WITHOUT actually pitching the product yet — just raise the stakes/relevance, then stop.
 
 Tone: Friendly, professional, concise. Confident but not hyped. No jargon.
 Never use: "per my last email", "in conclusion", "touching base", generic filler, or any variation of "we help" / "we offer" / "our service".
@@ -81,7 +83,7 @@ CRITICAL: Only reference facts that appear in the Research Notes provided to you
 Return your response in EXACTLY this format, nothing before or after, no markdown, no code fences:
 SUBJECT: <the subject line, one line only>
 NOTE:
-<the 2-4 sentence personalized opening note>`,
+<the 2-3 sentence personalized opening note>`,
   },
 
   Zevahit: {
@@ -104,7 +106,7 @@ CRITICAL: Only reference facts that appear in the Research Notes provided to you
 Return your response in EXACTLY this format, nothing before or after, no markdown, no code fences:
 SUBJECT: <the subject line, one line only>
 NOTE:
-<the 2-4 sentence personalized opening note>`,
+<the 2-3 sentence personalized opening note>`,
   },
 };
 
@@ -145,7 +147,17 @@ async function writeResult(sheets, rowNumber, status, researchNotes, subject, pe
   });
 }
 
-// ---------- Step 1: Research via Gemini + Google Search grounding ----------
+// ---------- Step 1: Research via Grok's Live Search (web_search tool) ----------
+
+function extractOutputText(response) {
+  if (response.output_text) return response.output_text.trim();
+  // Fallback: manually walk the output array for text content
+  const parts = (response.output || [])
+    .flatMap((item) => item.content || [])
+    .filter((c) => c.type === "output_text" || c.type === "text")
+    .map((c) => c.text);
+  return parts.join("").trim();
+}
 
 async function researchLead(lead) {
   const persona = PERSONAS[lead.persona];
@@ -159,19 +171,15 @@ ${persona.researchAngle}
 Return a factual summary under 150 words covering: what the company does, approximate scale (number of locations/stores if applicable), primary city/country, and any notable recent news (last 12 months) if found. Be explicit if you could not confirm something — say "unconfirmed" rather than guessing. Do not fabricate numbers or facts.`;
 
   const response = await withRetry(() =>
-    ai.models.generateContent({
-      model: RESEARCH_MODEL,
-      contents: prompt,
-      config: {
-        tools: [{ googleSearch: {} }],
-        maxOutputTokens: 1000,
-        temperature: 0.3,
-        thinkingConfig: { thinkingBudget: 0 },
-      },
+    xai.responses.create({
+      model: MODEL,
+      input: prompt,
+      tools: [{ type: "web_search" }],
+      reasoning_effort: "none",
     })
   );
 
-  return response.text.trim();
+  return extractOutputText(response);
 }
 
 // ---------- Step 2: Personalized subject + note generation ----------
@@ -190,20 +198,20 @@ ${researchNotes}
 
 Write the subject line and personalized note now.`;
 
-  const response = await withRetry(() =>
-    ai.models.generateContent({
-      model: WRITE_MODEL,
-      contents: userMsg,
-      config: {
-        systemInstruction: persona.writeSystemPrompt,
-        maxOutputTokens: 600,
-        temperature: 0.7,
-        thinkingConfig: { thinkingBudget: 0 },
-      },
+  const completion = await withRetry(() =>
+    xai.chat.completions.create({
+      model: MODEL,
+      messages: [
+        { role: "system", content: persona.writeSystemPrompt },
+        { role: "user", content: userMsg },
+      ],
+      max_tokens: 600,
+      temperature: 0.7,
+      reasoning_effort: "none",
     })
   );
 
-  const raw = response.text.trim();
+  const raw = completion.choices[0].message.content.trim();
   const subjectMatch = raw.match(/SUBJECT:\s*(.+)/i);
   const noteMatch = raw.match(/NOTE:\s*([\s\S]*)/i);
 
@@ -239,7 +247,7 @@ async function main() {
     try {
       console.log(`Researching ${lead.company} (${lead.email})...`);
       const researchNotes = await researchLead(lead);
-      await new Promise((r) => setTimeout(r, 5000));
+      await new Promise((r) => setTimeout(r, 3000));
 
       console.log(`Writing note for ${lead.company}...`);
       const { subject, personalizedNote } = await writeNote(lead, researchNotes);
@@ -248,7 +256,7 @@ async function main() {
       console.log(`Done: ${lead.email} — "${subject}"`);
       processedCount++;
 
-      await new Promise((r) => setTimeout(r, 5000));
+      await new Promise((r) => setTimeout(r, 3000));
     } catch (err) {
       const reason = err.message || String(err);
       await writeResult(sheets, lead.rowNumber, `Failed: ${reason}`, "", "", "");
