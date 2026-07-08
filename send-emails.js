@@ -11,7 +11,7 @@
  * Required GitHub Secrets:
  *  - GMAIL_USER               your sending address, e.g. salman@localtuneup.com
  *  - GMAIL_APP_PASSWORD       16-char Gmail/Workspace app password
- *  - ANTHROPIC_API_KEY        Claude API key
+ *  - GEMINI_API_KEY           Gemini API key from Google AI Studio (aistudio.google.com)
  *  - GOOGLE_SERVICE_ACCOUNT_JSON   full JSON key (as one-line string) for a service account
  *                                   that has Editor access to the target Sheet
  *  - SHEET_ID                 the Google Sheet ID (from its URL)
@@ -23,13 +23,14 @@
 
 const nodemailer = require("nodemailer");
 const { google } = require("googleapis");
-const Anthropic = require("@anthropic-ai/sdk");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const SHEET_ID = process.env.SHEET_ID;
 const SHEET_TAB = "Leads";
 const DAILY_SEND_LIMIT = parseInt(process.env.DAILY_SEND_LIMIT || "80", 10); // stay under Gmail's ~500/day, leave headroom
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const geminiModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 // ---------- Persona system prompts (from brand guidelines) ----------
 
@@ -120,17 +121,14 @@ Notes/context: ${lead.notes || "(none provided)"}
 
 Write the outreach email now.`;
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 600,
-    system: systemPrompt,
-    messages: [{ role: "user", content: userMsg }],
+  const result = await geminiModel.generateContent({
+    contents: [{ role: "user", parts: [{ text: userMsg }] }],
+    systemInstruction: { role: "system", parts: [{ text: systemPrompt }] },
+    generationConfig: { maxOutputTokens: 600, temperature: 0.7 },
   });
 
-  const raw = response.content
-    .filter((b) => b.type === "text")
-    .map((b) => b.text)
-    .join("")
+  const raw = result.response
+    .text()
     .replace(/```json|```/g, "")
     .trim();
 
