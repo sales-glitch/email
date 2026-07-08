@@ -139,8 +139,9 @@ Return a factual summary under 150 words covering: what the company does, approx
     contents: prompt,
     config: {
       tools: [{ googleSearch: {} }],
-      maxOutputTokens: 400,
+      maxOutputTokens: 1000,
       temperature: 0.3,
+      thinkingConfig: { thinkingBudget: 0 },
     },
   });
 
@@ -168,8 +169,9 @@ Write the outreach email now.`;
     contents: userMsg,
     config: {
       systemInstruction: persona.writeSystemPrompt,
-      maxOutputTokens: 800,
+      maxOutputTokens: 1200,
       temperature: 0.7,
+      thinkingConfig: { thinkingBudget: 0 },
     },
   });
 
