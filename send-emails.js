@@ -124,7 +124,11 @@ Write the outreach email now.`;
   const result = await geminiModel.generateContent({
     contents: [{ role: "user", parts: [{ text: userMsg }] }],
     systemInstruction: { role: "system", parts: [{ text: systemPrompt }] },
-    generationConfig: { maxOutputTokens: 600, temperature: 0.7 },
+    generationConfig: {
+      maxOutputTokens: 800,
+      temperature: 0.7,
+      responseMimeType: "application/json",
+    },
   });
 
   const raw = result.response
@@ -132,7 +136,15 @@ Write the outreach email now.`;
     .replace(/```json|```/g, "")
     .trim();
 
-  const parsed = JSON.parse(raw);
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    // Fallback: if a stray raw newline broke the JSON string, escape newlines
+    // that appear inside quoted strings before retrying.
+    const sanitized = raw.replace(/[\n\r]+/g, "\\n");
+    parsed = JSON.parse(sanitized);
+  }
   const body = parsed.body.replace(/\[SENDER_NAME\]/g, SENDER_NAME);
   return { subject: parsed.subject, body };
 }
